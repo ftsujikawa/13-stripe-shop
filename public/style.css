@@ -1,0 +1,19 @@
+:root { --bg:#fafaf7; --fg:#222; --muted:#666; --card:#fff; --line:#e4e2dc; --accent:#5b4bdb; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#17171a; --fg:#eee; --muted:#aaa; --card:#222226; --line:#34343a; --accent:#9d92ff; }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, "Hiragino Sans", "Noto Sans JP", sans-serif; line-height:1.6; }
+main { max-width: 880px; margin: 0 auto; padding: 32px 16px; }
+h1 { margin: 0 0 4px; }
+.note { color: var(--muted); margin: 0 0 24px; }
+.grid { list-style:none; padding:0; margin:0; display:grid; gap:16px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; display:flex; flex-direction:column; }
+.card h2 { font-size:1.05rem; margin:0 0 8px; }
+.price { font-size:1.4rem; font-weight:700; margin:0 0 16px; }
+.price span { font-size:.8rem; font-weight:400; color:var(--muted); margin-left:4px; }
+.card form { margin-top:auto; }
+button, .button { display:inline-block; width:100%; padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; text-align:center; text-decoration:none; }
+button:hover, .button:hover { filter: brightness(1.08); }
+.message { text-align:center; padding-top:64px; }
+.message .button { width:auto; margin-top:16px; }
