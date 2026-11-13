@@ -44,6 +44,7 @@ function recordOrder(session) {
   const order = {
     sessionId: session.id,
     productId: session.metadata?.productId ?? null,
+    quantity: session.metadata?.quantity ? Number(session.metadata.quantity) : null,
     amount: session.amount_total,
     currency: session.currency,
     email: session.customer_details?.email ?? null,
@@ -96,6 +97,16 @@ const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const yen = (n) => `¥${n.toLocaleString('ja-JP')}`;
 
+// 数量は 1〜10 の整数だけ受け付ける(フォームの min/max はブラウザ側の目安で、判定はここで行う)
+const MIN_QUANTITY = 1;
+const MAX_QUANTITY = 10;
+function parseQuantity(value) {
+  // "1"〜"10" の文字列だけを許可する。"1.5" "01" "1e1" " 2" や配列(同名フィールドの重複)は拒否
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return null;
+  const n = Number(value);
+  return n >= MIN_QUANTITY && n <= MAX_QUANTITY ? n : null;
+}
+
 // 商品一覧
 app.get('/', (req, res) => {
   const cards = products
@@ -106,6 +117,9 @@ app.get('/', (req, res) => {
         <p class="price">${yen(p.price)}<span>(税込)</span></p>
         <form method="post" action="/checkout">
           <input type="hidden" name="productId" value="${escapeHtml(p.id)}">
+          <label class="qty">数量
+            <input type="number" name="quantity" value="1" min="${MIN_QUANTITY}" max="${MAX_QUANTITY}" step="1" required>
+          </label>
           <button type="submit">購入する</button>
         </form>
       </li>`
@@ -132,10 +146,15 @@ app.get('/', (req, res) => {
 
 // Checkout Session を作って Stripe の決済ページへ送る
 app.post('/checkout', async (req, res) => {
-  // ブラウザからは商品IDだけを受け取り、価格は必ずサーバー側の products.json から引く
+  // ブラウザからは商品IDと数量だけを受け取る。価格は必ずサーバー側の products.json から引き、
+  // ブラウザから金額などが送られてきても一切使わない
   const product = productsById.get(req.body.productId);
   if (!product) {
     return res.status(400).send('不明な商品です。');
+  }
+  const quantity = parseQuantity(req.body.quantity);
+  if (quantity === null) {
+    return res.status(400).send(`数量は ${MIN_QUANTITY}〜${MAX_QUANTITY} の整数で指定してください。`);
   }
 
   try {
@@ -143,7 +162,7 @@ app.post('/checkout', async (req, res) => {
       mode: 'payment',
       line_items: [
         {
-          quantity: 1,
+          quantity,
           price_data: {
             currency: 'jpy', // JPY は小数なし通貨なので円の整数をそのまま渡す
             unit_amount: product.price,
@@ -151,7 +170,7 @@ app.post('/checkout', async (req, res) => {
           },
         },
       ],
-      metadata: { productId: product.id },
+      metadata: { productId: product.id, quantity: String(quantity) },
       success_url: `${BASE_URL}/success.html`,
       cancel_url: `${BASE_URL}/cancel.html`,
     });

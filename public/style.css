@@ -13,6 +13,8 @@ h1 { margin: 0 0 4px; }
 .price { font-size:1.4rem; font-weight:700; margin:0 0 16px; }
 .price span { font-size:.8rem; font-weight:400; color:var(--muted); margin-left:4px; }
 .card form { margin-top:auto; }
+.qty { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 12px; color:var(--muted); font-size:.9rem; }
+.qty input { width:5em; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; text-align:right; }
 button, .button { display:inline-block; width:100%; padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; text-align:center; text-decoration:none; }
 button:hover, .button:hover { filter: brightness(1.08); }
 .message { text-align:center; padding-top:64px; }

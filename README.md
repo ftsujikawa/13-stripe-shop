@@ -24,7 +24,9 @@ Node.js + Express + Stripe Checkout のミニショップ。商品は `products.
 
 ## 仕組み
 
-- ブラウザは商品IDだけを `POST /checkout` に送る。価格はサーバーが `products.json` から引く
+- ブラウザは商品IDと数量だけを `POST /checkout` に送る。価格はサーバーが `products.json` から引き、
+  ブラウザから金額が送られてきても使わない
+- 数量は 1〜10 の整数のみ受け付け、それ以外(`0`、`11`、`1.5`、`01`、空など)は 400 で拒否する
 - `price_data` でその場で商品名・金額を渡すため、Stripe 側に商品登録は不要
 - JPY は小数なし通貨なので `price`(円)をそのまま `unit_amount` に渡す
 - 安全のため、テストキー以外(`sk_live_...`)では起動しない
