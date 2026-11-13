@@ -29,6 +29,20 @@ Node.js + Express + Stripe Checkout のミニショップ。商品は `products.
 - JPY は小数なし通貨なので `price`(円)をそのまま `unit_amount` に渡す
 - 安全のため、テストキー以外(`sk_live_...`)では起動しない
 
-## 今後
+## Webhook(支払い完了の記録)
 
-- Webhook(`checkout.session.completed`)で支払い完了を記録する
+支払いが完了すると Stripe が `POST /webhook` に `checkout.session.completed` を送り、
+サーバーが署名を検証したうえで `orders.jsonl` に1行1注文で記録します(Git には入りません)。
+
+ローカルで受け取るには [Stripe CLI](https://docs.stripe.com/stripe-cli) を使います。
+
+```sh
+stripe login                                         # 初回のみ
+stripe listen --forward-to localhost:3000/webhook    # 表示される whsec_... を .env の STRIPE_WEBHOOK_SECRET へ
+npm start                                            # 別のターミナルで
+```
+
+- 署名が合わないリクエストは 400 で拒否します
+- 同じ Session のイベントが再送されても、二重には記録しません
+- `STRIPE_WEBHOOK_SECRET` が未設定でもショップは動きますが、`/webhook` は 503 を返し注文は記録されません
+- 記録先は環境変数 `ORDERS_FILE` で変更できます

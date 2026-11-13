@@ -1,12 +1,13 @@
 require('dotenv').config({ quiet: true });
 
+const fs = require('node:fs');
 const path = require('node:path');
 const express = require('express');
 const Stripe = require('stripe');
 const products = require('./products.json');
 
 // --- 設定の読み込みとチェック ---------------------------------------------
-const { STRIPE_SECRET_KEY, BASE_URL = 'http://localhost:3000' } = process.env;
+const { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BASE_URL = 'http://localhost:3000' } = process.env;
 const PORT = Number(process.env.PORT) || 3000;
 
 if (!STRIPE_SECRET_KEY) {
@@ -19,11 +20,75 @@ if (!/^(sk|rk)_test_/.test(STRIPE_SECRET_KEY)) {
   process.exit(1);
 }
 
+if (!STRIPE_WEBHOOK_SECRET) {
+  console.warn('STRIPE_WEBHOOK_SECRET が未設定のため、Webhook (/webhook) は無効です。注文は記録されません。');
+}
+
 const stripe = Stripe(STRIPE_SECRET_KEY);
 const productsById = new Map(products.map((p) => [p.id, p]));
 
+// --- 注文の記録(orders.jsonl に1行1注文で追記) ---------------------------
+const ORDERS_FILE = process.env.ORDERS_FILE || path.join(__dirname, 'orders.jsonl');
+// 同じイベントが再送されても二重に記録しないよう、記録済みの Session ID を覚えておく
+const recordedSessionIds = new Set(
+  fs.existsSync(ORDERS_FILE)
+    ? fs.readFileSync(ORDERS_FILE, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line).sessionId)
+    : []
+);
+
+function recordOrder(session) {
+  if (recordedSessionIds.has(session.id)) {
+    console.log(`注文は記録済みです: ${session.id}`);
+    return;
+  }
+  const order = {
+    sessionId: session.id,
+    productId: session.metadata?.productId ?? null,
+    amount: session.amount_total,
+    currency: session.currency,
+    email: session.customer_details?.email ?? null,
+    paidAt: new Date().toISOString(),
+  };
+  fs.appendFileSync(ORDERS_FILE, JSON.stringify(order) + '\n');
+  recordedSessionIds.add(session.id);
+  console.log(`注文を記録しました: ${order.productId} ${order.amount} ${order.currency}`);
+}
+
 // --- アプリ本体 -------------------------------------------------------------
 const app = express();
+
+// Webhook:署名検証に「生の」リクエストボディが必要なので、他のパーサーより先に定義する
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  if (!STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).send('Webhook is not configured');
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.warn('Webhook の署名検証に失敗しました:', err.message);
+    return res.status(400).send('Invalid signature');
+  }
+
+  switch (event.type) {
+    // カード払いは完了時点で paid。後から入金される支払い方法は async_payment_succeeded で届く
+    case 'checkout.session.completed':
+    case 'checkout.session.async_payment_succeeded': {
+      const session = event.data.object;
+      if (session.payment_status === 'paid') {
+        recordOrder(session);
+      }
+      break;
+    }
+    default:
+      // 他のイベントは使わないが、受け取ったことは 200 で返す
+      break;
+  }
+
+  res.json({ received: true });
+});
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
