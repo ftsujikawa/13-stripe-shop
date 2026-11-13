@@ -31,6 +31,17 @@ Node.js + Express + Stripe Checkout のミニショップ。商品は `products.
 - JPY は小数なし通貨なので `price`(円)をそのまま `unit_amount` に渡す
 - 安全のため、テストキー以外(`sk_live_...`)では起動しない
 
+## 自動テスト
+
+```sh
+npm test
+```
+
+本物の Stripe には接続しません。`stripe.webhooks.generateTestHeaderString` で偽の署名つきイベントを作り、
+署名検証(正しい署名・違う署名・本文の書き換え)、同じイベントの再送、未払いイベントの扱いを確かめます。
+Checkout Session の作成は偽物に差し替え、ブラウザから送った金額が使われないことも確かめます。
+テスト中は外部への HTTP(S) 通信を遮断し、ダミーのキーと一時ファイルを使うので `.env` や `orders.jsonl` には触れません。
+
 ## Webhook(支払い完了の記録)
 
 支払いが完了すると Stripe が `POST /webhook` に `checkout.session.completed` を送り、

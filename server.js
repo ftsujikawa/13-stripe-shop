@@ -181,6 +181,11 @@ app.post('/checkout', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`ステッカー店を起動しました: ${BASE_URL}`);
-});
+// `node server.js` で直接起動したときだけ待ち受ける(テストからは require して使う)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`ステッカー店を起動しました: ${BASE_URL}`);
+  });
+}
+
+module.exports = { app, stripe };
